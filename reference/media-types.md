@@ -213,7 +213,7 @@ its top level name. All of its sub-attributes will follow. For example, the
 above `default` view includes the `locale` attribute, which will cause its
 `language` and `country` sub-attributes to be rendered.
 
-##Links
+## Links
 
 Praxis provides a special helper for crafting media types that refer to other
 resources. In particular, it allows the use of the special `links` DSL within
@@ -288,9 +288,9 @@ rendered view will look:
 {% endhighlight %}
 
 Sometimes it is convenient to provide a lot of embedded information in an API
-response. This could save the client extra API calls to retrieve that
+response like in the example above. This could save the client extra API calls to retrieve that
 information later on. In practice, however, you don't want to include too much
-unnecessary information in your responses. It is pretty common to include only
+unnecessary information in your responses, so it is pretty common to include only
 links to embedded information instead. This is exactly what including `links`
 in your view will do for you.
 
@@ -314,7 +314,12 @@ Rendering the `default` view for a Blog does not include the `owner` or
 `blog_entries` as top level attributes. Instead, the `default` view includes
 them inside the `links` attribute. So they will both be rendered using their
 `link` views, which by convention will include a small subset of attributes,
-perhaps just the href attribute like the example above.
+perhaps just the href attribute like the example above. Note that while this
+works well for single related members, returning an array of objects
+with one `href` each is not exactly what you might want for related collections. What you 
+typically want is to return a single `collection href` that, if followed, it can provide 
+the contents of the related collection. Continue reading on until the Praxis::MediaTypeCollection 
+sections to see how to achieve that.
 
 ### Customizing links
 
@@ -411,21 +416,23 @@ file](https://github.com/rightscale/attributor/blob/master/README.md).
 
 ### Praxis::MediaTypeCollection
 
-Praxis::MediaTypeCollection is a special media type for collections of objects
-rather than single objects. Just like a regular Praxis::MediaType, you can
-declare attributes and views and render them. When populated with members,
-a Praxis::MediaTypeCollection is enumerable.
+Praxis::MediaTypeCollection is a special media type for collections of objects 
+rather than single objects. Just like a regular Praxis::MediaType, you can declare 
+attributes and views and render them. When populated with members, a 
+```Praxis::MediaTypeCollection``` is enumerable.
 
 Also like other media types, you can embed a Praxis::MediaTypeCollection within
 another media type.  For instance, a blog may have many posts and you may want
-a view for your Blog media type that embeds all of a Blog's posts. You may want
-a view with aggregate information about the Blog's posts like the total number
-of posts or a list of all the Blog's authors. It's also possible that you don't
+a view for your Blog media type that embeds all of a Blog's posts. You may also want
+a view with aggregate information about the Posts collection instead. For example 
+the total number of posts or a list of all the Blog's authors. It's also possible that you don't
 want to embed any information about actual posts, but you do want to link to
 them.
 
 With Praxis, you can do all of this by creating a media type for your
-collection. For example:
+collection and defining the appropriate aggregate attributes, and corresponding views. 
+Let's take a look at the following example, where we create an inner ```Collection``` class
+inside the ```Post``` media_type class:
 
 {% highlight ruby %}
 class Post < Praxis::MediaType
@@ -464,18 +471,23 @@ end
 {% endhighlight %}
 
 This Post media type has some attributes you'd expect on a blog post, and its
-default view renders all of them. There is also a Collection media type for the
-Post media type. The collection has its own attributes that refer to properties
+default view renders all of them. There is also a ```Post::Collection``` media type. 
+The collection has its own attributes that refer to properties
 of the collection itself rather than properties of the collection's members.
 
 This new collection media type is a first class media type like any other,
-except collection media types reference the type of members in the collection.
-In this case, the Post::Collection media type has Post as its member_type. Once
-defined, you can reference your new collection from other media types. Here's
-an example of a `Blog` resource that refers to the `Post` collection in various
-views:
+except collection media types reference the type of members that the collection contains.
+In this case, the ```Post::Collection``` media type has ```Post``` as its member_type. 
+Like any other media_type, rendering a ```MediaTypeCollection``` will use the views you have defined in it. There is, however an exception, that being that if the view to render is not
+found, it will default to using the same name view in the member_type (wrapping it in an array).
+If a view to render is not found in the ```MediaTypeCollection``` or its member_type, the 
+operation will fail.
 
-#### Fully embedded collections
+Defining the collections as inner classes within the related member_type has the advantage
+that can be used from other media types. Below are some examples of a `Blog` resource that 
+refers to the `Post` collection in various ways.
+
+#### Embedding full collection contents
 
 It is possible to directly embed every `Post` into its `Blog`. In this example,
 when Praxis renders the view `default` for a `Blog`, it locates the
@@ -504,10 +516,8 @@ end
 
 You might not want to embed every single post in a `Blog` view. Instead, you
 might opt to embed aggregate information about the blog's `Post` collection.
-Since a collection is a media type, you can create a view on the collection to
-display only the information you want to display. In the example above,
-`Post::Collection` has a view named `aggregate`. To tell Praxis to use this
-view, just name it in the "outer" view in the `Blog` media type:
+We can achieve that by rendering the `posts` with the `aggregate` view defined 
+above.
 
 {% highlight ruby %}
 class Blog < Praxis::MediaType
@@ -525,6 +535,7 @@ end
 
 Make sure the underlying object for the collection appropriately responds to
 `href`, `authors`, and `count`.
+
 
 #### Embedding just a link
 
